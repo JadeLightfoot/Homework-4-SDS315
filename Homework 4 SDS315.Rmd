@@ -1,0 +1,419 @@
+---
+title: "Homework 3 SDS315"
+author: "Jade Lightfoot (jsl3652)"
+output:
+  html_document:
+    toc: yes
+    toc_float: yes
+---
+```{r echo=FALSE}
+knitr::opts_chunk$set(fig.height=6, fig.width=6, warning=FALSE, tidy=TRUE, tidy.opts=list(width.cutoff=60))
+
+suppressPackageStartupMessages(library(dplyr))
+suppressPackageStartupMessages(library(kableExtra))
+```
+
+```{r echo=FALSE , message=FALSE , warning=FALSE}
+# Libraries and Data Sets
+gasprices <- read.csv("/Users/jadelightfoot/Downloads/gasprices.csv")
+sclass <- read.csv("/Users/jadelightfoot/Downloads/sclass.csv")
+nbc<- read.csv("/Users/jadelightfoot/Downloads/nbc_pilotsurvey.csv")
+ebay <- read.csv("/Users/jadelightfoot/Downloads/ebay.csv")
+library(kableExtra)
+library(tidyverse)
+library(ggplot2)
+library(dplyr)
+library(mosaic)
+```
+
+Github Repo link: https://github.com/JadeLightfoot/Homework-4-SDS315 
+
+
+# **Problem 1: Gas Station** #
+
+***
+
+### **Theory A** ###
+**Claim**: 
+  This theory states, "Gas stations charge more if they lack direct competition in sight". 
+  
+**Evidence**:
+  The box plots below display the relationship of if a gas station has a competitor or not, and its price.  
+
+```{r echo=FALSE}
+# THEORY A CODE
+
+# Creating a box plot separating gas stations that have competitors and don't have competitors
+ggplot(gasprices, aes(x = Competitors, y = Price, fill = Competitors)) + geom_boxplot() + labs(x = "Competitors", y = "Price (USD)", title = "Gas Station Prices Based on Competitors") + theme_minimal()
+
+
+
+
+```
+
+```{r echo= FALSE}
+# Bootstrapping difference of means
+diff_price_compete <-diffmean(Price ~ Competitors, data = gasprices)
+diff_price_boot = do(10000) * diffmean(Price ~ Competitors, data = resample(gasprices))
+diff_price_confint <-confint(diff_price_boot, level = 0.95)
+
+ggplot(diff_price_boot) + geom_histogram(aes(x=diffmean), binwidth=0.01)+ xlim(-.10,.05) 
+
+kable(diff_price_confint, "html") %>%
+  kable_styling(bootstrap_options = "striped", full_width = F) 
+
+```
+
+Based on the box plot gas stations with no competitors have a larger range of prices and has a higher average price than that of gas stations with competitors. The claim of the theory that Gas stations charge more if they lack direct competition in sight", proves correct. The difference of means is about -.023, which means that the mean is less than the hypothesized mean. Also above there is a bootstrapped histogram displayed containing a bootstrapped sample of price by competition, displaying the difference of means. The difference between gas station prices that have competitors and don't is somewhere between -0.055 and 0.008, with 95% confidence. 
+
+**Conclusion**:
+  Based on the data above the claim that "Gas stations charge more if they lack direct competition in sight" is supported. 
+
+
+### **Theory B** ###
+**Claim**: 
+  This theory states, "The richer the area, the higher the gas prices."
+  
+**Evidence**:
+
+```{r echo=FALSE}
+ggplot(gasprices, aes(x = Income, y = Price)) +
+  geom_point() +
+  labs(x = "Income", y = "Gas Price")
+
+lm_gasprice_income<- lm(Price ~ Income, data = gasprices)
+boot_income_price = do(10000) * lm(Price ~ Income, data = resample(gasprices))
+
+income_price_confint <- confint(boot_income_price, level = 0.95)
+kable(income_price_confint, "html") %>%
+  kable_styling(bootstrap_options = "striped", full_width = F) 
+
+```
+
+
+  The scatterplot shows the relationship between gas prices and household income based on the median income by zip code in Austin. When observing the plot it is clear that the two variables (price and income) share no correlation. Meaning that the claim is unsupported by the data because there is no trend or correlation when looking a t gas prices and rich areas based on household income by zip code. 
+
+**Conclusion**:
+  Based on the evidence above the claim that, "The richer the area, the higher the gas prices." proves to be unsupported by the data. In this case performing a confidence interval would not help further the claim. 
+
+
+### **Theory C** ###
+**Claim**: 
+  This theory states, "Gas stations at stoplights charge more." 
+
+**Evidence**: 
+```{r echo=FALSE}
+#CREATING A TABLE
+
+# Calculating the average and median prices for gas stations with and without a stoplight nearby
+price_summ_C <- aggregate(Price ~ Stoplight, data = gasprices, FUN = function(x) c(mean = mean(x), median = median(x)))
+
+# Calculate proportions
+proportions <- prop.table(table(gasprices$Stoplight))
+
+price_summ_C$Proportion <- proportions[match(price_summ_C$Stoplight, names(proportions))]
+
+# Reshape the data frame
+price_summ_C$Price <- t(price_summ_C$Price)
+
+# Combine into a new data frame
+price_summary_reshaped <- data.frame(
+  Stoplight = price_summ_C$Stoplight,
+  Mean_Price = price_summ_C$Price[1, ],
+  Median_Price = price_summ_C$Price[2, ],
+  Proportion = as.numeric(price_summ_C$Proportion)
+)
+
+kable(price_summary_reshaped, "html") %>%
+  kable_styling(bootstrap_options = "striped", full_width = F) 
+
+```
+
+```{r echo=FALSE }
+# Calculate the difference of means
+diffmeans_stoplight <- diffmean(Price ~ Stoplight,
+                                data= gasprices)
+boot_stoplight = do(10000) * diffmean(Price ~ Stoplight,
+                                data= resample(gasprices))
+stoplight_confint <- confint(boot_stoplight, level = 0.95)
+
+ggplot(boot_stoplight) + geom_histogram(aes(x=diffmean), binwidth=0.01)+ xlim(-.10,.10) 
+
+kable(stoplight_confint, "html") %>%
+  kable_styling(bootstrap_options = "striped", full_width = F) 
+
+```
+
+
+  This table shows the proportion of gas stations that are near a stoplight (Y) and not near a stoplight (N). It also displays the mean and median of the gas prices based on if the gas station was near a stoplight or not. Based on the table the mean and median prices are similarly close to one another for the gas stations, but when looking at the proportion there is more gas stations located near a stoplight. When calculating the difference of means between gas stations near and not near a stoplight the difference was .003. This difference does not necessarily hold any significance due to its closeness to zero. Meaning that the claim "Gas stations at stoplights charge more." can not be heavily supported. Based on the evidence above the difference of means estimate is -.003 and the difference between gas station prices near a stoplight is somewhere between -0.038 and 0.030, with 95% confidence. 
+  
+**Conclusion**:
+  To conclude, based on the evidence for the claim that "Gas stations at stoplights charge more.", one can conclude that the evidence does not support the claim. 
+  
+
+### **Theory D** ###
+**Claim**:
+  This theory states that, "Gas Stations with direct highway access charge more." 
+  
+**Evidence**:
+
+```{r echo=FALSE, eval=FALSE}
+mean(Price ~ Highway, 
+     data=gasprices)
+diffmean(Price ~ Highway,
+     data=gasprices)
+```
+
+
+```{r echo=FALSE}
+boot_price_highway = do(10000) * diffmean(Price ~ Highway,
+     data=resample(gasprices))
+price_high_confint <-confint(boot_price_highway, level = 0.95)
+
+ggplot(boot_price_highway) + geom_histogram(aes(x=diffmean), binwidth=0.01)+ xlim(-.05,.15) 
+
+kable(price_high_confint, "html") %>%
+  kable_styling(bootstrap_options = "striped", full_width = F) 
+```
+
+  Based on the evidence above the difference of means is .05 and the difference between gas stations off the highway is somewhere between 0.008892 and 0.0815476, with 95% confidence. 
+
+ **Conclusion**:
+  Based on the evidence the claim that "Gas Stations with direct highway access charge more." is supported through the confidence interval and estimated mean. 
+ 
+### **Theory E** ###
+**Claim**:
+  This theory states, "Shell charges more than all other non-Shell brands."
+
+**Evidence**:
+
+```{r echo=FALSE}
+gas_brand_filtered = gasprices %>%
+  mutate(isShell = ifelse(Brand =="Shell", TRUE, FALSE))
+
+gasbrand_bootstrap = do(10000) * prop(~isShell, data = mosaic::resample(gas_brand_filtered))
+
+gasbrand_confint <- confint(gasbrand_bootstrap, level = 0.95)
+
+kable(gasbrand_confint, "html") %>%
+  kable_styling(bootstrap_options = "striped", full_width = F) 
+
+
+```
+
+Based on the mean prices Shell does not charge more than other brands that are non-shell. So the claim is not supported by the data. The mean estimate is 0.24 and the difference of Shell and other gas brands is between 0.20 and 0.38, with 95% confidence. 
+
+ **Conclusion**:
+  Based on the evidence the claim that "Shell charges more than all other non-Shell brands."it is not supported by the evidence. 
+  
+
+***
+
+# **Problem 2: Mercedes S-Class** #
+
+
+***
+
+### **Part A** ###
+
+```{r echo=FALSE }
+part_A_filtered_data <- filter(sclass, year == 2011, trim == "63 AMG")
+
+sclass2011_bootstrap = do(10000) * diffmean(mileage ~ condition == "Used", 
+     data= resample(part_A_filtered_data))
+
+sclass2011_confint <- confint(sclass2011_bootstrap, level= 0.95)
+kable(sclass2011_confint, "html") %>%
+  kable_styling(bootstrap_options = "striped", full_width = F) 
+```
+
+```{r echo=FALSE, eval= FALSE}
+mean(mileage ~ condition == "Used", 
+     data= part_A_filtered_data)
+diffmean(mileage ~ condition == "Used", 
+     data= part_A_filtered_data)
+```
+
+The difference for a 95% confidence interval in average mileage for 2011 S-Class 63 AMGs that were hitting the used-car market when this data was collected is somewhere between -1114.60 and 9640.53
+
+
+
+### **Part B** ###
+
+```{r echo=FALSE }
+part_B_filtered_data <- sclass %>%
+  filter(year == 2014, trim == "550") %>%
+  mutate(isBlack = ifelse(color == "Black", TRUE, FALSE))
+
+sclass2014_bootstrap = do(10000) * prop(~isBlack, data = mosaic::resample(part_B_filtered_data))
+sclass2014_confint<-confint(sclass2014_bootstrap, level=0.95)
+
+```
+
+```{r echo= FALSE}
+kable(sclass2014_confint, "html") %>%
+  kable_styling(bootstrap_options = "striped", full_width = F) 
+
+
+```
+
+The proportion for a 95% confidence interval of all 2014 S-Class 550s that were painted black is somewhere between 0.42 and 0.45. 
+
+
+***
+
+# **Problem 3: NBC Network Shows** #
+
+
+***
+
+### **Part A** ###
+
+**Question:**
+  The question I am trying to answer is, if there is evidence that one show consistently produces a higher mean for Question 1- Happy response among its viewers. 
+
+  
+**Approach:**
+  To answer this question I used the confint function and performed a 95 % confidence interval to find evidence for viewer response regarding the shows "Living with Ed" and "My name is Earl". 
+  
+**Results:**
+
+```{r echo =FALSE}
+filtered_EarlandEd <- nbc %>%
+  filter(Show == "Living with Ed" | Show == "My Name is Earl")
+
+boot_EarlandEd <-do(10000) * diffmean(Q1_Happy ~ Show, 
+         data= resample(filtered_EarlandEd))
+confint_EarlandEd <- confint(boot_EarlandEd, level= 0.95)
+kable(confint_EarlandEd, "html") %>%
+  kable_styling(bootstrap_options = "striped", full_width = F) 
+
+
+
+avgs_EdandEarl <- filtered_EarlandEd %>%
+  group_by(Show) %>%
+  summarize(Estimated_Means = mean(Q1_Happy))
+
+ggplot(avgs_EdandEarl, aes(x = Show, y = Estimated_Means, fill = Show)) +
+  geom_bar(stat = "identity") +
+  labs(title = "Estimated Average for Q1 Responses",
+       x = "Show Name",
+       y = "Average") +
+  theme_minimal()
+```
+
+  In order to answer the question I made a table displaying the confidence interval data for difference of means and also made a bar graph to display the averages for both shows. 
+
+**Conclusion**
+  To conclude there is no significant evidence to show that one show consistently produces a higher mean. The estimated means are very close and when running a 95% confidence interval somewhere between -0.40 and .11. Because of the interval and the true mean lying somewhere in between the two numbers further investigation between the two shows would have to be conducted. 
+
+
+***
+
+### **Part B** ###
+
+**Question:**
+  The question that needs to be answered is which reality/ contest show ("The Biggest Loser" and "The Apprentice: Los Angeles") made people feel more annoyed, and is there evidence that show one show consistently producing a higher mean in the Q1_Annoyed response among viewers. 
+
+**Approach:**
+  For this question i will use the function confint to for find the confidence interval as well as bootstrap a sample. I will construct this by filtering a data set that only contains "The Biggest Loser" and "The Apprentice: Los Angeles". 
+
+**Results:**
+```{r echo=FALSE}
+filtered_reality <- nbc %>%
+  filter(Show == "The Biggest Loser" | Show == "The Apprentice: Los Angeles")
+
+boot_reality = do(10000) * diffmean(Q1_Annoyed ~ Show,
+                                    data= resample(filtered_reality))
+
+confint_reality <- confint(boot_reality, level= 0.95)
+
+kable(confint_reality, "html") %>%
+  kable_styling(bootstrap_options = "striped", full_width = F) 
+
+```
+
+  These results provide a table that shows a 95% confidence interval for the difference in means for the shows "The Biggest Loser" and "The Apprentice: Los Angeles" after running a bootstrap.
+
+**Conclusion**
+  To conclude because the 95% confidence interval is between -0.52 and -0.02 there is statistical significance because the value of zero is not between these two numbers. Meaning that one show consistently produces more annoyance than the other. To answer the question of which show , "The Apprentice: Los Angeles" had the higher mean for the show being considered annoying. Therefore, this show may not be a hit with viewers. 
+  
+
+***
+  
+### **Part C** ###
+  
+**Question:**
+  The question is what proportion of American TV watchers would we expect to give a response 4 or greater to the "Q2_Confusing" question for the show "Dancing With the Stars". 
+  
+**Approach:**
+  For this question I will use confint to find the confidence interval of proportions and by constructing a confidence interval by bootstrapping the DWTS (Dancing With The Stars) filtered data  it should help answer the question. 
+  
+**Results:**
+
+```{r echo=FALSE , eval=FALSE}
+filtered_DWTS <- nbc %>%
+  filter(Show == "Dancing with the Stars")
+confusing_DWTS <- mean(filtered_DWTS$Q2_Confusing >= 4)
+
+conf_DWTS <- prop.test(sum(filtered_DWTS$Q2_Confusing >= 4), nrow(filtered_DWTS), conf.level = 0.95)$conf.int
+
+print(conf_DWTS)
+
+```
+  
+  Based on calculations for the proportion confidence interval or the response of 4 or greater to the Q2_Confusing question my approach provided me with statistical certainty evidence for the question. 
+  
+**Conclusion**
+  To conclude after constructing a 95% confidence interval there is statically significant evidence that the true proportion of American TV watchers of DWTS that gave a response of 4 or greater to the "Q2_Confusing" is between 0.04 and 0.12. Because zero is not included in this interval we can conclude statistical significance. 
+  
+  
+***
+
+# **Problem 4: EBay** #
+
+
+***
+
+**Question:**
+  The question that needs to be answered is, "...assess the evidence for whether the revenue ratio is the same in the treatment and control groups, or whether instead the data favors the idea that paid search advertising on Google creates extra revenue for EBay".
+  
+**Approach:**
+  In order to answer this question the statistical approach used was constructing a confidence interval, by bootstrapping. 
+  
+**Results:**
+
+```{r echo=FALSE ,eval=FALSE}
+ebay_mutated <- ebay %>%
+  mutate(rev_ratio = rev_after / rev_before)
+
+diff_mean_rev_ratio <- diffmean(rev_ratio ~ adwords_pause,
+                                data= ebay_mutated)
+
+
+bootstrap_ebay = do(10000) * diffmean(rev_ratio ~ adwords_pause, data= resample(ebay_mutated))
+
+conf_ebay <- confint(bootstrap_ebay, level = 0.95)
+
+
+kable(conf_ebay, "html") %>%
+  kable_styling(bootstrap_options = "striped", full_width = F) 
+
+```
+
+  The evidence or results my approach provided in the table above was a 95% confidence interval for the question provided. 
+
+**Conclusion:**
+  Based on the 95% confidence interval between -0.09 and -0.01 there is statistical evidence that the data favors the idea that paid search advertising on Google creates revenue for Ebay.  
+
+
+
+
+
+
+
+
+
+
+
+
